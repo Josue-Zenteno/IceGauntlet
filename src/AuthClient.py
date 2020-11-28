@@ -14,7 +14,7 @@ Ice.loadSlice('IceGauntlet.ice')
 # pylint: disable=C0413
 import IceGauntlet
 
-class Client(Ice.Application):
+class AuthClient(Ice.Application):
     def run(self, argv):
         try:
             args = self.parseArgs(argv)
@@ -82,4 +82,4 @@ class Client(Ice.Application):
         tokenTxt.close()
         print("Tu token de identificación es: "+token+"\nTambién se ha guardado en el archivo token.txt")
 
-sys.exit(Client().main(sys.argv))
+sys.exit(AuthClient().main(sys.argv))
