@@ -30,18 +30,18 @@ class MapManIntermediary(IceGauntlet.MapManagement):
         except Ice.Exception:
             print("Proxy no disponible en este momento\nException: Connection Refused")
 
-    def publish(self, token, roomData):
+    def publish(self, token, roomData, current = None):
         '''Publish a room'''
         if not self.authServer.isValid(token):
             raise IceGauntlet.Unauthorized()
         self.__commit__(token, roomData)
         
     
-    def remove(self, token, roomName):
+    def remove(self, token, roomName, current = None):
         '''Remove a room'''
         if not self.authServer.isValid(token):
             raise IceGauntlet.Unauthorized()
-        self.__uncommit__(roomName)
+        self.__uncommit__(token, roomName)
 
     @staticmethod   
     def __commit__(token, roomData):
@@ -50,23 +50,32 @@ class MapManIntermediary(IceGauntlet.MapManagement):
 
         newRoom = json.loads(roomData)
         
-        if rooms[newRoom["room"]][token] != token:
-            raise IceGauntlet.RoomAlreadyExists()
+        __keys__ = rooms.keys()
+        
+        if len(__keys__) != 0:
+            if newRoom["room"] in __keys__:
+                if token != rooms[newRoom["room"]]:
+                    raise IceGauntlet.RoomAlreadyExists()
 
+        rooms[newRoom["room"]]= {}
+        rooms[newRoom["room"]][token] = {}
         rooms[newRoom["room"]][token] = newRoom
 
         with open(ROOMS_FILE, 'w') as roomsfile:
             json.dump(rooms, roomsfile, indent=4)
     
     @staticmethod
-    def __uncommit__(roomName):
+    def __uncommit__(token, roomName):
         with open(ROOMS_FILE, 'r') as roomsfile:
             rooms = json.load(roomsfile)
 
         if not roomName in rooms:
-            raise IceGauntlet.RoomNotExists() 
+            raise IceGauntlet.RoomNotExists()
+        else:
+            if token != rooms[roomName]:
+                raise IceGauntlet.RoomNotExists() 
 
-        rooms.pop("roomName")
+        rooms.pop(roomName)
 
         with open(ROOMS_FILE, 'w') as roomsfile:
             json.dump(rooms, roomsfile, indent=4)
