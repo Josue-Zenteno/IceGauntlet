@@ -28,20 +28,20 @@ class AuthClient(Ice.Application):
             
             self.printMenu(authServer)
             return 0
+        except IceGauntlet.Unauthorized:
+            print("Usuario y/o Contraseña no válida")
+            return 1
+        except Ice.Exception:
+            print("Proxy no disponible en este momento\nException: Connection Refused")
+            return 2
+        except noOptionSelected:
+            print("No se ha seleccionado ninguna opción válida")
+            return 3
         except EOFError:
             return 4
         except RuntimeError:
             return 5
-        except IceGauntlet.Unauthorized:
-            print("Usuario y/o Contraseña no válida")
-            return 1
-        except noOptionSelected:
-            print("No se ha seleccionado ninguna opción válida")
-            return 2
-        except Ice.Exception:
-            print("Proxy no disponible en este momento\nException: Connection Refused")
-            return 3
-
+            
     def printMenu(self, authServer):
         option = input("\n¿Qué quieres hacer?:\n1.Obtener token de autorización\n2.Cambiar contraseña\n")
         if option == '1':
