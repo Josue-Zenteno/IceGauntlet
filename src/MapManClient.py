@@ -44,18 +44,23 @@ class MapManClient(Ice.Application):
         except Ice.Exception:
             print("Proxy no disponible en este momento\nException: Connection Refused")
             return 4
-        except FileNotFoundError:
-            print("El archivo seleccionado no es un archivo JSON")
+        except noOptionSelected:
+            print("No se ha seleccionado ninguna opcion valida")
             return 5
+        except incorrectFile:
+            print("El archivo seleccionado no es un archivo JSON")
+            return 6
+        except invalidMap:
+            print("El Mapa seleccionado no es válido")
+            return 7
         except KeyError:
             print("El archivo seleccionado no es un Mapa")
-            return 6
-        except RuntimeError:
-            return 7
+            return 8         
         except EOFError:
-            return 8
-
-  
+            return 9
+        except RuntimeError:
+            return 10
+           
     def printMenu(self, mapManServer):
         option = input("\n¿Qué quieres hacer?:\n1.Publicar un Mapa\n2.Borrar un Mapa\n")
         if option == '1':
@@ -71,7 +76,7 @@ class MapManClient(Ice.Application):
             
             mapManServer.remove(token, roomName)
         else:
-            print("Ninguna opción seleccionada")
+            raise noOptionSelected
 
     @staticmethod
     def parseArgs(argv):
@@ -96,11 +101,23 @@ class MapManClient(Ice.Application):
             newMapFile = open(newMapPath)
             newMapDict = json.load(newMapFile)
         else:
-            raise FileNotFoundError
+            raise incorrectFile
         
         if not newMapDict["room"]:
-            raise KeyError
+            raise invalidMap
         
         return newMapDict 
+
+class customError(Exception):
+    pass
+
+class noOptionSelected(customError):
+    pass
+
+class incorrectFile(customError):
+    pass
+
+class invalidMap(customError):
+    pass
 
 sys.exit(MapManClient().main(sys.argv))
