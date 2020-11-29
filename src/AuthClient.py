@@ -28,18 +28,20 @@ class AuthClient(Ice.Application):
             
             self.printMenu(authServer)
             return 0
-
+        except EOFError:
+            return 4
+        except RuntimeError:
+            return 5
         except IceGauntlet.Unauthorized:
             print("Usuario y/o Contraseña no válida")
             return 1
+        except noOptionSelected:
+            print("No se ha seleccionado ninguna opción válida")
+            return 2
         except Ice.Exception:
             print("Proxy no disponible en este momento\nException: Connection Refused")
-            return 2
-        except RuntimeError:
             return 3
-        except EOFError:
-            return 4
-  
+
     def printMenu(self, authServer):
         option = input("\n¿Qué quieres hacer?:\n1.Obtener token de autorización\n2.Cambiar contraseña\n")
         if option == '1':
@@ -59,7 +61,7 @@ class AuthClient(Ice.Application):
 
             authServer.changePassword(user, currentPassHash, newPassHash)
         else:
-            print("Ninguna opción seleccionada")
+            raise noOptionSelected
 
     @staticmethod
     def hashPassStr(password):
@@ -81,5 +83,11 @@ class AuthClient(Ice.Application):
         tokenTxt.write(token)
         tokenTxt.close()
         print("Tu token de identificación es: "+token+"\nTambién se ha guardado en el archivo token.txt")
+
+class customError(Exception):
+    pass
+
+class noOptionSelected(customError):
+    pass
 
 sys.exit(AuthClient().main(sys.argv))
