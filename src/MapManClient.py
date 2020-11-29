@@ -8,8 +8,6 @@ import sys
 import Ice
 import json
 import argparse
-import getpass
-import hashlib
 from tkinter import Tk
 from tkinter.filedialog import askopenfilename
 Ice.loadSlice('IceGauntlet.ice')
