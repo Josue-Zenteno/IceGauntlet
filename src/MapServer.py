@@ -8,6 +8,7 @@ import sys
 import Ice
 import json
 import argparse
+from random import choice
 Ice.loadSlice('IceGauntlet.ice')
 # pylint: disable=E0401
 # pylint: disable=C0413
@@ -26,7 +27,6 @@ class MapManIntermediary(IceGauntlet.MapManagement):
 
             if not self.authServer:
                 raise RuntimeError('Invalid proxy') 
-
         except Ice.Exception:
             print("Proxy no disponible en este momento\nException: Connection Refused")
 
@@ -36,7 +36,6 @@ class MapManIntermediary(IceGauntlet.MapManagement):
             raise IceGauntlet.Unauthorized()
         self.__commit__(token, roomData)
         
-    
     def remove(self, token, roomName, current = None):
         '''Remove a room'''
         if not self.authServer.isValid(token):
@@ -50,10 +49,10 @@ class MapManIntermediary(IceGauntlet.MapManagement):
 
         newRoom = json.loads(roomData)
         
-        __keys__ = rooms.keys()
+        __rooms__ = rooms.keys()
         
-        if len(__keys__) != 0:
-            if newRoom["room"] in __keys__:
+        if len(__rooms__) != 0:
+            if newRoom["room"] in __rooms__:
                 if token != rooms[newRoom["room"]]:
                     raise IceGauntlet.RoomAlreadyExists()
 
@@ -79,17 +78,39 @@ class MapManIntermediary(IceGauntlet.MapManagement):
 
         with open(ROOMS_FILE, 'w') as roomsfile:
             json.dump(rooms, roomsfile, indent=4)
+            
+class GameService(IceGauntlet.Game):
+    def getRoom(self, current = None):
+        with open(ROOMS_FILE, 'r') as roomsfile:
+            rooms = json.load(roomsfile)
+        
+        __rooms__ = rooms.keys()
+        
+        if len(__rooms__) == 0:
+            raise IceGauntlet.RoomNotExists
+
+        selectedRoom = choice(list(__rooms__))
+        selectedRoomToken = rooms[selectedRoom].keys()
+        roomDataDict = rooms[selectedRoom][list(selectedRoomToken)[0]]
+        roomData = json.dumps(roomDataDict)
+        
+        return roomData
+
 class MapManServer(Ice.Application):
     def run(self, argv):
         args = self.parseArgs(argv)
         broker = self.communicator()
-        servant = MapManIntermediary(broker, args)
-        
-        adapter =  broker.createObjectAdapter("MapManagementAdapter")
-        proxy = adapter.add(servant, broker.stringToIdentity('default'))
+        mapManServant = MapManIntermediary(broker, args)
+        gameServant = GameService()
 
-        print("Proxy de este servicio: ")
-        print('"{}"'.format(proxy), flush=True)
+        adapter =  broker.createObjectAdapter("MapAdapter")
+        mapManProxy = adapter.add(mapManServant, broker.stringToIdentity('mapManService'))
+        gameProxy = adapter.add(gameServant, broker.stringToIdentity('gameService')) 
+        
+        print("Proxy del servicio de Gestión de Mapas: ")
+        print('"{}"'.format(mapManProxy), flush=True)
+        print("Proxy del servicio de Juego: ")
+        print('"{}"'.format(gameProxy), flush=True)
 
         adapter.activate()
         self.shutdownOnInterrupt()
