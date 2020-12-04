@@ -57,7 +57,6 @@ def main():
 
     game.pyxeltools.initialize()
     dungeon = game.DungeonMap(user_options.LEVEL)
-    print(dungeon)
     gauntlet = game.Game(user_options.hero, dungeon)
     gauntlet.add_state(game.screens.TileScreen, game.common.INITIAL_SCREEN)
     gauntlet.add_state(game.screens.StatsScreen, game.common.STATUS_SCREEN)
