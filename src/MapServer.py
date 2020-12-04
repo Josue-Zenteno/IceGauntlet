@@ -71,7 +71,7 @@ class MapManIntermediary(IceGauntlet.MapManagement):
         if not roomName in rooms:
             raise IceGauntlet.RoomNotExists()
         else:
-            if token != rooms[roomName]:
+            if token != list(rooms[roomName].keys())[0]:
                 raise IceGauntlet.RoomNotExists() 
 
         rooms.pop(roomName)
