@@ -33,21 +33,20 @@ DEFAULT_ROOM = 'tutorial.json'
 DEFAULT_HERO = game.common.HEROES[0]
 
 class RemoteDungeonMap(Ice.Application):
-    def run(self, levels):
+    def run(self, gameProxy):
         try:
-            gameProxy = input("Introduce el Proxy del servicio de juego: ")
-            cantidadDeMapas = input("Cuantos mapas quieres jugar: ")
-            proxy = self.communicator().stringToProxy(gameProxy)
+            #gameProxy = input("Introduce el Proxy del servicio de juego: ")
+            cantidadDeMapas = input("Cuantos mapas quieres jugar:")
+            proxy = self.communicator().stringToProxy(gameProxy[0])
             gameServer = IceGauntlet.GamePrx.checkedCast(proxy)
-            print("\nTe has conectado al Proxy: " + gameProxy)
+            #print("\nTe has conectado al Proxy: " + gameProxy)
             
             if not gameServer:
                 raise RuntimeError('Invalid proxy')
             
             new_levels = self.getRooms(gameServer, int(cantidadDeMapas))
-            self._levels_ = levels
-            self._levels_ = self._levels_ + new_levels
-            print(self._levels_)
+            self._levels_ = new_levels
+            #print(self._levels_)
 
         except IceGauntlet.RoomNotExists:
             print("No hay mapas disponibles en el servidor")
@@ -65,7 +64,7 @@ class RemoteDungeonMap(Ice.Application):
         for x in roomDict["room"].split(' '):
             roomName+=x
         roomFile = roomName+'.json'
-        roomFilePath = 'assets/'+roomName+'.json'
+        roomFilePath = './src/icegauntlet2/assets/'+roomName+'.json'
         
         with open(roomFilePath, 'w') as roomfile:
             json.dump(roomDict, roomfile, indent=4)
@@ -85,17 +84,18 @@ def bye(*args, **kwargs):
 def parse_commandline():
     '''Parse and check commandline'''
     parser = argparse.ArgumentParser('IceDungeon Local Game')
-    parser.add_argument('LEVEL', nargs='+', default=[DEFAULT_ROOM], help='List of levels')
+    #parser.add_argument('LEVEL', nargs='+', default=[DEFAULT_ROOM], help='List of levels')
+    parser.add_argument("PROXY", help="Proxy del servicio de juego")
     parser.add_argument(
         '-p', '--player', default=DEFAULT_HERO, choices=game.common.HEROES,
         dest='hero', help='Hero to play with'
     )
     options = parser.parse_args()
 
-    for level_file in options.LEVEL:
-        if not game.assets.search(level_file):
-            logging.error(f'Level "{level_file}" not found!')
-            return None
+    #for level_file in options.LEVEL:
+        #if not game.assets.search(level_file):
+            #logging.error(f'Level "{level_file}" not found!')
+            #return None
     return options
 
 
@@ -106,9 +106,11 @@ def main():
         return BAD_COMMAND_LINE
 
     game.pyxeltools.initialize()
-    dungeon1 = RemoteDungeonMap()
-    dungeon1.main(user_options.LEVEL)
-    dungeon = dungeon1.generateDungeonMap()
+    remoteDungeon = RemoteDungeonMap()
+    arg = list()
+    arg.append(user_options.PROXY)
+    remoteDungeon.main(arg)
+    dungeon = remoteDungeon.generateDungeonMap()
     gauntlet = game.Game(user_options.hero, dungeon)
     gauntlet.add_state(game.screens.TileScreen, game.common.INITIAL_SCREEN)
     gauntlet.add_state(game.screens.StatsScreen, game.common.STATUS_SCREEN)
