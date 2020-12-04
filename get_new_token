@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-'''
-Script to run authentication user
-'''
-
 import os
 import sys
 
