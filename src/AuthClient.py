@@ -26,34 +26,34 @@ class AuthClient(Ice.Application):
             if not authServer:
                 raise RuntimeError('Invalid proxy')
             
-            self.printMenu(authServer)
-            return 0
+            if args.Token:
+                self.printMenu(authServer, args.User, 1)
+            if args.Password:
+                self.printMenu(authServer, args.User, 2)
         except IceGauntlet.Unauthorized:
             print("Usuario y/o Contraseña no válida")
-            return 1
+            sys.exit(1)
         except Ice.Exception:
             print("Proxy no disponible en este momento\nException: Connection Refused")
-            return 2
+            sys.exit(2)
         except noOptionSelected:
             print("No se ha seleccionado ninguna opción válida")
-            return 3
+            sys.exit(3)
         except EOFError:
-            return 4
+            sys.exit(4)
         except RuntimeError:
-            return 5
+            sys.exit(5)
             
-    def printMenu(self, authServer):
-        option = input("\n¿Qué quieres hacer?:\n1.Obtener token de autorización\n2.Cambiar contraseña\n")
-        if option == '1':
-            user = input("Introduce tu Usuario: ")
-            currentPass = getpass.getpass(prompt="Introduce tu Contraseña:")
+    def printMenu(self, authServer, user, option):
+        if option == 1:
+            currentPass = getpass.getpass('Password:')
             passwordHash = self.hashPassStr(currentPass)
             
             token = authServer.getNewToken(user, passwordHash)
+            print(token)
             self.saveToken(token)
 
-        elif option == '2':
-            user = input("Introduce tu Usuario: ")
+        elif option == 2:
             currentPass = getpass.getpass(prompt="Introduce tu Contraseña actual:")
             currentPassHash = self.hashPassStr(currentPass)
             newPass = getpass.getpass(prompt="Introduce Contraseña nueva:")
@@ -73,7 +73,11 @@ class AuthClient(Ice.Application):
     @staticmethod
     def parseArgs(argv):
         parser = argparse.ArgumentParser()
+        parser.add_argument("User", help="Aqui va el nombre de usuario")
         parser.add_argument("Proxy", help="Aqui va el proxy generado por el Athentication Server")
+        group = parser.add_mutually_exclusive_group()
+        group.add_argument("-t", "--Token" , action="store_true",help='Opcion para pedir un nuevo token')
+        group.add_argument("-p", "--Password", action="store_true", help='Opcion para cambiar contraseña')
         args = parser.parse_args()
         return args
     
@@ -82,7 +86,7 @@ class AuthClient(Ice.Application):
         tokenTxt = open("token.txt", "w")
         tokenTxt.write(token)
         tokenTxt.close()
-        print("Tu token de identificación es: "+token+"\nTambién se ha guardado en el archivo token.txt")
+        print("También se ha guardado en el archivo token.txt")
 
 class customError(Exception):
     pass
