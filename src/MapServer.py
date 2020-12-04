@@ -23,7 +23,7 @@ class MapManIntermediary(IceGauntlet.MapManagement):
             self.communicator = broker
             self.authProxy = self.communicator.stringToProxy(args.authProxy)
             self.authServer = IceGauntlet.AuthenticationPrx.checkedCast(self.authProxy)
-            print("\nTe has conectado al Proxy: " + args.authProxy)
+            #print("\nTe has conectado al Proxy: " + args.authProxy)
 
             if not self.authServer:
                 raise RuntimeError('Invalid proxy') 
@@ -49,12 +49,15 @@ class MapManIntermediary(IceGauntlet.MapManagement):
 
         newRoom = json.loads(roomData)
         
-        __rooms__ = rooms.keys()
-        
-        if len(__rooms__) != 0:
-            if newRoom["room"] in __rooms__:
-                if token != rooms[newRoom["room"]]:
-                    raise IceGauntlet.RoomAlreadyExists()
+        try:
+            __rooms__ = rooms.keys()
+            
+            if len(__rooms__) != 0:
+                if newRoom["room"] in __rooms__:
+                    if token != rooms[list(newRoom["room"].keys())[0]]:
+                        raise IceGauntlet.RoomAlreadyExists()
+        except KeyError:
+            raise IceGauntlet.WrongRoomFormat()
 
         rooms[newRoom["room"]]= {}
         rooms[newRoom["room"]][token] = {}
@@ -107,10 +110,10 @@ class MapManServer(Ice.Application):
         mapManProxy = adapter.add(mapManServant, broker.stringToIdentity('mapManService'))
         gameProxy = adapter.add(gameServant, broker.stringToIdentity('gameService')) 
         
-        print("Proxy del servicio de Gestión de Mapas: ")
-        print('"{}"'.format(mapManProxy), flush=True)
-        print("Proxy del servicio de Juego: ")
-        print('"{}"'.format(gameProxy), flush=True)
+        #print("Proxy del servicio de Gestión de Mapas: ")
+        print('"{}"'.format(mapManProxy))
+        #print("Proxy del servicio de Juego: ")
+        self.saveGameProxy('"{}"'.format(gameProxy))
 
         adapter.activate()
         self.shutdownOnInterrupt()
@@ -123,6 +126,12 @@ class MapManServer(Ice.Application):
         parser.add_argument("authProxy", help="Aqui va el proxy generado por el Athentication Server")
         args = parser.parse_args()
         return args
+    
+    @staticmethod
+    def saveGameProxy(gameProxy):
+        tokenTxt = open("gameProxy.txt", "w")
+        tokenTxt.write(gameProxy)
+        tokenTxt.close()
 
 if __name__ == '__main__':
     app = MapManServer()
