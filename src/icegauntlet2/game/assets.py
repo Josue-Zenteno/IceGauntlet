@@ -10,10 +10,10 @@ import os.path
 
 
 _FOLDERS_PATH_ = [
-    'assets',
-    '$HOME/.icegauntlet/assets',
-    '/usr/local/share/icegauntlet/assets',
-    '/usr/share/icegauntlet/assets'
+    'src/icegauntlet2/assets',
+    '$HOME/.icegauntlet2/assets',
+    '/usr/local/share/src/icegauntlet2/assets',
+    '/usr/share/src/icegauntlet2/assets'
 ]
 
 def search(filename):
