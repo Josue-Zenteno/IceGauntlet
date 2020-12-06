@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-#
-# pylint: disable=W1203
+
 
 '''
     ICE Gauntlet ONLINE GAME
@@ -9,7 +8,6 @@
 
 import sys
 import atexit
-import logging
 import argparse
 import json
 
@@ -33,45 +31,55 @@ DEFAULT_ROOM = 'tutorial.json'
 DEFAULT_HERO = game.common.HEROES[0]
 
 class RemoteDungeonMap(Ice.Application):
-    def run(self, gameProxy):
+    '''Remote Dungeon Map'''
+    def __init__(self):
+        self._levels_ = list()
+
+    def run(self, game_proxy):
         try:
             #gameProxy = input("Introduce el Proxy del servicio de juego: ")
-            cantidadDeMapas = input("Cuantos mapas quieres jugar:")
-            proxy = self.communicator().stringToProxy(gameProxy[0])
-            gameServer = IceGauntlet.GamePrx.checkedCast(proxy)
+            cantidad_de_mapas = input("Cuantos mapas quieres jugar:")
+            proxy = self.communicator().stringToProxy(game_proxy[0])
+            game_server = IceGauntlet.GamePrx.checkedCast(proxy)
             #print("\nTe has conectado al Proxy: " + gameProxy)
-            
-            if not gameServer:
+
+            if not game_server:
                 raise RuntimeError('Invalid proxy')
-            
-            new_levels = self.getRooms(gameServer, int(cantidadDeMapas))
+
+            new_levels = self.get_rooms(game_server, int(cantidad_de_mapas))
             self._levels_ = new_levels
             #print(self._levels_)
 
         except IceGauntlet.RoomNotExists:
             print("No hay mapas disponibles en el servidor")
-    
-    def getRooms(self, gameServer, cantidadDeMapas):
+
+    def get_rooms(self, game_server, cantidad_de_mapas):
+        '''
+        Invokes n times gatRoom() depending on the number selected by the user
+        saves them and returns a list with the level names
+        '''
         rooms = list()
-        for i in range(cantidadDeMapas):
-            roomData = gameServer.getRoom()
-            rooms.append(self.saveRoom(roomData))
+        for i in range(cantidad_de_mapas):
+            room_data = game_server.getRoom()
+            rooms.append(self.save_room(room_data))
         return rooms
 
-    def saveRoom(self, roomData):
-        roomDict = json.loads(roomData)
-        roomName=""
-        for x in roomDict["room"].split(' '):
-            roomName+=x
-        roomFile = roomName+'.json'
-        roomFilePath = './src/icegauntlet2/assets/'+roomName+'.json'
-        
-        with open(roomFilePath, 'w') as roomfile:
-            json.dump(roomDict, roomfile, indent=4)
-        
-        return roomFile
-    
-    def generateDungeonMap(self):
+    def save_room(self, room_data):
+        '''Saves a room in the assests folder'''
+        room_dict = json.loads(room_data)
+        room_name = ""
+        for _x in room_dict["room"].split(' '):
+            room_name += _x
+        room_file = room_name+'.json'
+        room_file_path = './src/icegauntlet2/assets/'+room_name+'.json'
+
+        with open(room_file_path, 'w') as roomfile:
+            json.dump(room_dict, roomfile, indent=4)
+
+        return room_file
+
+    def generate_dungeon_map(self):
+        '''Returns a game.DungeonMap object'''
         return game.DungeonMap(self._levels_)
 
 @atexit.register
@@ -105,19 +113,22 @@ def main():
     if not user_options:
         return BAD_COMMAND_LINE
 
-    game.pyxeltools.initialize()
-    remoteDungeon = RemoteDungeonMap()
-    arg = list()
-    arg.append(user_options.PROXY)
-    remoteDungeon.main(arg)
-    dungeon = remoteDungeon.generateDungeonMap()
-    gauntlet = game.Game(user_options.hero, dungeon)
-    gauntlet.add_state(game.screens.TileScreen, game.common.INITIAL_SCREEN)
-    gauntlet.add_state(game.screens.StatsScreen, game.common.STATUS_SCREEN)
-    gauntlet.add_state(game.screens.GameScreen, game.common.GAME_SCREEN)
-    gauntlet.add_state(game.screens.GameOverScreen, game.common.GAME_OVER_SCREEN)
-    gauntlet.add_state(game.screens.GoodEndScreen, game.common.GOOD_END_SCREEN)
-    gauntlet.start()
+    try:
+        game.pyxeltools.initialize()
+        remote_dungeon = RemoteDungeonMap()
+        arg = list()
+        arg.append(user_options.PROXY)
+        remote_dungeon.main(arg)
+        dungeon = remote_dungeon.generate_dungeon_map()
+        gauntlet = game.Game(user_options.hero, dungeon)
+        gauntlet.add_state(game.screens.TileScreen, game.common.INITIAL_SCREEN)
+        gauntlet.add_state(game.screens.StatsScreen, game.common.STATUS_SCREEN)
+        gauntlet.add_state(game.screens.GameScreen, game.common.GAME_SCREEN)
+        gauntlet.add_state(game.screens.GameOverScreen, game.common.GAME_OVER_SCREEN)
+        gauntlet.add_state(game.screens.GoodEndScreen, game.common.GOOD_END_SCREEN)
+        gauntlet.start()
+    except IceGauntlet.RoomNotExists:
+        return 1
 
     return EXIT_OK
 
