@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 
+'''
+    Run Map Server Script
+'''
+
 import os
 import sys
+
 def main():
     try:
         import pexpect
@@ -10,7 +15,7 @@ def main():
         sys.exit(1)
 
     # Define command to request new token
-    _COMMAND_ = 'python3 ./src/MapServer.py --Ice.Config=./src/MapServer.config "%(auth_proxy)s"'
+    _COMMAND_ = 'python3 ./src/map_server.py --Ice.Config=./src/map_server.config "%(auth_proxy)s"'
 
     # Get required arguments
     try:
@@ -28,7 +33,8 @@ def main():
 
     # Run command
     proc = pexpect.spawn(final_command, echo=False)
-    proc.expect([pexpect.EOF])
+    print(proc.readline().decode())
+    proc.expect([pexpect.EOF],timeout=None)
 
     #Show command output and exit
     print(proc.before.decode().strip())
