@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+'''
+    Run game script
+'''
+
 import os
 import sys
 
@@ -40,7 +44,7 @@ if found == 0:
     # Enter password
     proc.sendline('1')
     # Wait end
-    proc.expect([pexpect.EOF])
+    proc.expect([pexpect.EOF], timeout=None)
 else:
     # Client execution failed
     print('ERROR: authentication command does not ask for password after {} seconds'.format(
