@@ -1,4 +1,4 @@
-Proyect url: <https://github.com/Josue-Zenteno/SSDD.int_1.git>
+Proyect url: <https://github.com/Josue-Zenteno/SSDD-ZentenoSilvestrePrieto.git>
 
 Proyect members:
 
