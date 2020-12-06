@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+'''
+    Script to obtain a new token
+'''
+
 import os
 import sys
 
@@ -10,7 +14,7 @@ except ImportError:
     sys.exit(1)
 
 # Define command to request new token
-_COMMAND_ = 'python3 ./src/AuthClient.py %(user)s "%(auth_proxy)s" -t'
+_COMMAND_ = 'python3 ./src/auth_client.py %(user)s "%(auth_proxy)s" -t'
 
 # Message used by authentication client when asking for a password
 _PASSWORD_MESSAGE_ = 'Password:'
@@ -42,7 +46,8 @@ if found == 0:
     proc.expect([pexpect.EOF])
 else:
     # Client execution failed
-    print('ERROR: authentication command does not ask for password after {} seconds'.format(_TIMEOUT_FOR_MESSAGE_))
+    print('ERROR: authentication command does not ask for password after {} seconds'.format(
+        _TIMEOUT_FOR_MESSAGE_))
     sys.exit(1)
 
 # Show command output and exit
