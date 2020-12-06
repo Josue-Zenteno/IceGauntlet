@@ -1,36 +1,41 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-# pylint: disable=W1203
 # pylint: disable=W0613
 
+'''
+    Map Client
+'''
+
 import sys
-import Ice
 import json
 import argparse
 
+import Ice
 Ice.loadSlice('IceGauntlet.ice')
 # pylint: disable=E0401
 # pylint: disable=C0413
 import IceGauntlet
 
 class MapManClient(Ice.Application):
+    '''Map Client'''
     def run(self, argv):
         try:
-            args = self.parseArgs(argv)
+            args = self.parse_args(argv)
             proxy = self.communicator().stringToProxy(args.Proxy)
-            mapManServer = IceGauntlet.MapManagementPrx.checkedCast(proxy)
+            map_man_server = IceGauntlet.MapManagementPrx.checkedCast(proxy)
             #print("\nTe has conectado al Proxy: " + args.Proxy)
-            
-            if not mapManServer:
-                raise RuntimeError('Invalid proxy')
-            
-            if args.newMapPath:
-                self.publishMap(mapManServer, args.Token, args.newMapPath)
-            
-            if args.roomName:
-                self.removeMap(mapManServer, args.Token, args.roomName)
 
+            if not map_man_server:
+                raise RuntimeError('Invalid proxy')
+
+            if args.newMapPath:
+                self.publish_map(map_man_server, args.Token, args.newMapPath)
+
+            if args.roomName:
+                self.remove_map(map_man_server, args.Token, args.roomName)
+
+            return 0
         except IceGauntlet.Unauthorized:
             print("Usuario y/o Contraseña no válida")
             return 1
@@ -45,50 +50,55 @@ class MapManClient(Ice.Application):
         except Ice.Exception:
             print("Proxy no disponible en este momento\nException: Connection Refused")
             return 4
-        except incorrectFile:
+        except IncorrectFile:
             print("El archivo seleccionado no es un archivo JSON")
-            return 5        
+            return 5
         except EOFError:
             return 6
         except RuntimeError:
             return 7
-           
-    def publishMap(self, mapManServer, token, newMapPath):
-        newMapDict = self.readMapJson(newMapPath)
-        newMap = json.dumps(newMapDict)
-        mapManServer.publish(token, newMap)
+        except SystemExit:
+            return 8
 
-    def removeMap(self, mapManServer, token, roomName):
-        mapManServer.remove(token, roomName)
+    def publish_map(self, map_man_server, token, new_map_path):
+        '''Sends new room data as string invoking publish()'''
+        new_map_dict = self.read_map_json(new_map_path)
+        new_map = json.dumps(new_map_dict)
+        map_man_server.publish(token, new_map)
+
+    def remove_map(self, map_man_server, token, room_name):
+        '''Invokes remove()'''
+        map_man_server.remove(token, room_name)
 
     @staticmethod
-    def parseArgs(argv):
+    def parse_args(argv):
+        '''Parse the arguments'''
         parser = argparse.ArgumentParser()
         parser.add_argument("Proxy", help="Aqui va el proxy generado por el Map Server")
         parser.add_argument("Token", help="Aqui va el token obtenido del Authentication Server")
         group = parser.add_mutually_exclusive_group()
-        group.add_argument("-p", "--Publish" , dest="newMapPath",help="Opcion para publicar mapa")
+        group.add_argument("-p", "--Publish", dest="newMapPath", help="Opcion para publicar mapa")
         group.add_argument("-r", "--Remove", dest="roomName", help="Opcion para borrar mapa")
-        
+
         args = parser.parse_args()
-        
+
         return args
-    
+
     @staticmethod
-    def readMapJson(newMapPath):
+    def read_map_json(new_map_path):
+        '''Checks if the path leads to a json file and then turn it into a dictorinary'''
+        if new_map_path[-4:] != "json":
+            raise IncorrectFile
 
-        if newMapPath[-4:] != "json":
-            raise incorrectFile
+        new_map_file = open(new_map_path)
+        new_map_dict = json.load(new_map_file)
 
-        newMapFile = open(newMapPath)
-        newMapDict = json.load(newMapFile)
+        return new_map_dict
 
-        return newMapDict 
+class CustomError(Exception):
+    '''Custom Error Exception'''
 
-class customError(Exception):
-    pass
-
-class incorrectFile(customError):
-    pass
+class IncorrectFile(CustomError):
+    '''Custom Error Exception'''
 
 sys.exit(MapManClient().main(sys.argv))
