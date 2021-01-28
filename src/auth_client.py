@@ -13,7 +13,7 @@ import getpass
 import hashlib
 
 import Ice
-Ice.loadSlice('IceGauntlet.ice')
+Ice.loadSlice('icegauntlet.ice')
 # pylint: disable=E0401
 # pylint: disable=C0413
 import IceGauntlet
