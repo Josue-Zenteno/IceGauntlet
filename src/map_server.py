@@ -20,16 +20,15 @@ import IceGauntlet
 
 ROOMS_FILE = 'rooms.json'
 
-class MapManIntermediary(IceGauntlet.RoomManager):
-    '''Map Management Servant'''
+class RoomManager(IceGauntlet.RoomManager):
+    '''Room Manager Servant'''
     def __init__(self, broker, args):
         '''Conecting with the Authentication Server'''
+        self.map_storage = MapStorage()
         try:
             self.communicator = broker
             self.auth_proxy = self.communicator.stringToProxy(args.authProxy)
             self.auth_server = IceGauntlet.AuthenticationPrx.checkedCast(self.auth_proxy)
-            #print("\nTe has conectado al Proxy: " + args.authProxy)
-
             if not self.auth_server:
                 raise RuntimeError('Invalid proxy')
         except Ice.Exception:
@@ -40,15 +39,47 @@ class MapManIntermediary(IceGauntlet.RoomManager):
         user_name = self.auth_server.getOwner(token)
         if not user_name:
             raise IceGauntlet.Unauthorized()
-        self.__commit__(user_name, room_data)
+        self.map_storage.__commit__(user_name, room_data)
         
     def remove(self, token, room_name, current=None):
         '''Remove a room'''
         user_name = self.auth_server.getOwner(token)
         if not user_name:
             raise IceGauntlet.Unauthorized()
-        self.__uncommit__(user_name, room_name)
+        self.map_storage.__uncommit__(user_name, room_name)
+    
+    def availableRooms(self):
+        '''Returns a list of all the rooms in this RoomManager'''
+        pass #TODO
 
+    @staticmethod
+    def getRoom(roomName, current=None):
+        '''Returns a random room'''
+        with open(ROOMS_FILE, 'r') as roomsfile:
+            rooms = json.load(roomsfile)
+        __rooms__ = rooms.keys()
+
+        if len(__rooms__) == 0:
+            raise IceGauntlet.RoomNotExists
+
+        if roomName not in __rooms__:
+            raise IceGauntlet.RoomNotExists
+
+        user_name = rooms[roomName].keys()
+        room_data_dict = rooms[roomName][list(user_name)[0]]
+        room_data = json.dumps(room_data_dict)
+
+        return room_data
+
+class Dungeon(IceGauntlet.Dungeon):
+    '''Dungeon Servant'''
+    pass
+
+class DungeonArea(IceGauntlet.DungeonArea):
+    '''DungeonArea Servant'''
+    pass
+
+class MapStorage:
     @staticmethod
     def __commit__(user_name, room_data):
         '''Saves the map in the rooms.json file'''
@@ -91,40 +122,21 @@ class MapManIntermediary(IceGauntlet.RoomManager):
         with open(ROOMS_FILE, 'w') as roomsfile:
             json.dump(rooms, roomsfile, indent=4)
 
-class GameService(IceGauntlet.RoomManager):
-    '''Game Servant'''
-    def getRoom(self, current=None):
-        '''Returns a random room'''
-        with open(ROOMS_FILE, 'r') as roomsfile:
-            rooms = json.load(roomsfile)
-
-        __rooms__ = rooms.keys()
-
-        if len(__rooms__) == 0:
-            raise IceGauntlet.RoomNotExists
-
-        selected_room = choice(list(__rooms__))
-        selected_room_token = rooms[selected_room].keys()
-        room_data_dict = rooms[selected_room][list(selected_room_token)[0]]
-        room_data = json.dumps(room_data_dict)
-
-        return room_data
-
 class MapManServer(Ice.Application):
     '''Map Server'''
     def run(self, argv):
         args = self.parse_args(argv)
         broker = self.communicator()
-        map_man_servant = MapManIntermediary(broker, args)
-        game_servant = GameService()
 
-        adapter = broker.createObjectAdapter("MapAdapter")
-        map_man_proxy = adapter.add(map_man_servant, broker.stringToIdentity('mapManService'))
-        game_proxy = adapter.add(game_servant, broker.stringToIdentity('gameService'))
+        room_manager_servant = RoomManager(broker, args)
+        dungeon_servant = Dungeon() #TODO
+        #dungeon_area_servant = DungeonArea() #TODO
 
-        #print("Proxy del servicio de Gestión de Mapas: ")
+        adapter = broker.createObjectAdapter("RoomManagerAdapter")
+        map_man_proxy = adapter.addWithUUID(room_manager_servant)
+        game_proxy = adapter.addWithUUID(dungeon_servant)
+
         print('"{}"'.format(map_man_proxy))
-        #print("Proxy del servicio de Juego: ")
         self.save_game_proxy('"{}"'.format(game_proxy))
 
         adapter.activate()
