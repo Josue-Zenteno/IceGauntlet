@@ -12,7 +12,7 @@ import json
 import argparse
 
 import Ice
-Ice.loadSlice('IceGauntlet.ice')
+Ice.loadSlice('icegauntlet.ice')
 # pylint: disable=E0401
 # pylint: disable=C0413
 import IceGauntlet
@@ -23,7 +23,7 @@ class MapManClient(Ice.Application):
         try:
             args = self.parse_args(argv)
             proxy = self.communicator().stringToProxy(args.Proxy)
-            map_man_server = IceGauntlet.MapManagementPrx.checkedCast(proxy)
+            map_man_server = IceGauntlet.RoomManagerPrx.checkedCast(proxy)
             #print("\nTe has conectado al Proxy: " + args.Proxy)
 
             if not map_man_server:
