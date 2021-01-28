@@ -13,14 +13,14 @@ import argparse
 from random import choice
 
 import Ice
-Ice.loadSlice('IceGauntlet.ice')
+Ice.loadSlice('icegauntlet.ice')
 # pylint: disable=E0401
 # pylint: disable=C0413
 import IceGauntlet
 
 ROOMS_FILE = 'rooms.json'
 
-class MapManIntermediary(IceGauntlet.MapManagement):
+class MapManIntermediary(IceGauntlet.RoomManager):
     '''Map Management Servant'''
     def __init__(self, broker, args):
         '''Conecting with the Authentication Server'''
@@ -37,18 +37,20 @@ class MapManIntermediary(IceGauntlet.MapManagement):
 
     def publish(self, token, room_data, current=None):
         '''Publish a room'''
-        if not self.auth_server.isValid(token):
+        user_name = self.auth_server.getOwner(token)
+        if not user_name:
             raise IceGauntlet.Unauthorized()
-        self.__commit__(token, room_data)
-
+        self.__commit__(user_name, room_data)
+        
     def remove(self, token, room_name, current=None):
         '''Remove a room'''
-        if not self.auth_server.isValid(token):
+        user_name = self.auth_server.getOwner(token)
+        if not user_name:
             raise IceGauntlet.Unauthorized()
-        self.__uncommit__(token, room_name)
+        self.__uncommit__(user_name, room_name)
 
     @staticmethod
-    def __commit__(token, room_data):
+    def __commit__(user_name, room_data):
         '''Saves the map in the rooms.json file'''
         with open(ROOMS_FILE, 'r') as roomsfile:
             rooms = json.load(roomsfile)
@@ -60,20 +62,20 @@ class MapManIntermediary(IceGauntlet.MapManagement):
 
             if len(__rooms__) != 0:
                 if new_room["room"] in __rooms__:
-                    if token != rooms[list(new_room["room"].keys())[0]]:
+                    if user_name != rooms[list(new_room["room"].keys())[0]]:
                         raise IceGauntlet.RoomAlreadyExists()
         except KeyError:
             raise IceGauntlet.WrongRoomFormat()
 
         rooms[new_room["room"]] = {}
-        rooms[new_room["room"]][token] = {}
-        rooms[new_room["room"]][token] = new_room
+        rooms[new_room["room"]][user_name] = {}
+        rooms[new_room["room"]][user_name] = new_room
 
         with open(ROOMS_FILE, 'w') as roomsfile:
             json.dump(rooms, roomsfile, indent=4)
 
     @staticmethod
-    def __uncommit__(token, room_name):
+    def __uncommit__(user_name, room_name):
         '''Removes the map from the rooms.json file'''
         with open(ROOMS_FILE, 'r') as roomsfile:
             rooms = json.load(roomsfile)
@@ -81,7 +83,7 @@ class MapManIntermediary(IceGauntlet.MapManagement):
         if not room_name in rooms:
             raise IceGauntlet.RoomNotExists()
 
-        if token != list(rooms[room_name].keys())[0]:
+        if user_name != list(rooms[room_name].keys())[0]:
             raise IceGauntlet.RoomNotExists()
 
         rooms.pop(room_name)
@@ -89,7 +91,7 @@ class MapManIntermediary(IceGauntlet.MapManagement):
         with open(ROOMS_FILE, 'w') as roomsfile:
             json.dump(rooms, roomsfile, indent=4)
 
-class GameService(IceGauntlet.Game):
+class GameService(IceGauntlet.RoomManager):
     '''Game Servant'''
     def getRoom(self, current=None):
         '''Returns a random room'''
