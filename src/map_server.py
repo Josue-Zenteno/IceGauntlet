@@ -40,36 +40,21 @@ class RoomManager(IceGauntlet.RoomManager):
         if not user_name:
             raise IceGauntlet.Unauthorized()
         self.map_storage.__commit__(user_name, room_data)
-        
+
     def remove(self, token, room_name, current=None):
         '''Remove a room'''
         user_name = self.auth_server.getOwner(token)
         if not user_name:
             raise IceGauntlet.Unauthorized()
         self.map_storage.__uncommit__(user_name, room_name)
-    
+
     def availableRooms(self):
         '''Returns a list of all the rooms in this RoomManager'''
-        pass #TODO
+        return self.map_storage.getRoomNamesAndUserNames
 
-    @staticmethod
-    def getRoom(roomName, current=None):
-        '''Returns a random room'''
-        with open(ROOMS_FILE, 'r') as roomsfile:
-            rooms = json.load(roomsfile)
-        __rooms__ = rooms.keys()
-
-        if len(__rooms__) == 0:
-            raise IceGauntlet.RoomNotExists
-
-        if roomName not in __rooms__:
-            raise IceGauntlet.RoomNotExists
-
-        user_name = rooms[roomName].keys()
-        room_data_dict = rooms[roomName][list(user_name)[0]]
-        room_data = json.dumps(room_data_dict)
-
-        return room_data
+    def getRoom(self, room_name, current=None):
+        '''Returns the room information'''
+        return self.map_storage.getSpecificRoom(room_name)
 
 class Dungeon(IceGauntlet.Dungeon):
     '''Dungeon Servant'''
@@ -93,7 +78,8 @@ class MapStorage:
 
             if len(__rooms__) != 0:
                 if new_room["room"] in __rooms__:
-                    if user_name != rooms[list(new_room["room"].keys())[0]]:
+                    new_room_name = new_room[list(new_room.keys())[1]]
+                    if user_name != list(rooms[new_room_name].keys())[0]:
                         raise IceGauntlet.RoomAlreadyExists()
         except KeyError:
             raise IceGauntlet.WrongRoomFormat()
@@ -121,6 +107,31 @@ class MapStorage:
 
         with open(ROOMS_FILE, 'w') as roomsfile:
             json.dump(rooms, roomsfile, indent=4)
+
+    @staticmethod
+    def getRoomNamesAndUserNames():
+        '''Returns a list with the format:[{Room:User}, ...]'''
+        with open(ROOMS_FILE, 'r') as roomsfile:
+            rooms = json.load(roomsfile)
+
+        rooms_and_users_list = list()
+
+        for room in list(rooms.keys()):
+            dictionary = {}
+            dictionary[room] = {}
+            dictionary[room] = list(rooms[room].keys())[0]
+            rooms_and_users_list.append(json.dumps(dictionary))
+
+        return rooms_and_users_list
+
+    @staticmethod
+    def getSpecificRoom(roomName):
+        '''Returns the information of an specific room given the name'''
+        with open(ROOMS_FILE, 'r') as roomsfile:
+            rooms = json.load(roomsfile)
+
+        user_name = list(rooms[roomName].keys())[0]
+        return json.dumps(rooms[roomName][user_name])
 
 class MapManServer(Ice.Application):
     '''Map Server'''
