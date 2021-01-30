@@ -50,11 +50,13 @@ class RoomManager(IceGauntlet.RoomManager):
 
     def availableRooms(self):
         '''Returns a list of all the rooms in this RoomManager'''
-        return self.map_storage.getRoomNamesAndUserNames
+        return self.map_storage.get_rooms_with_users()
 
     def getRoom(self, room_name, current=None):
         '''Returns the room information'''
-        return self.map_storage.getSpecificRoom(room_name)
+        if room_name not in self.map_storage.get_rooms():
+            raise IceGauntlet.RoomNotExists()
+        return self.map_storage.get_room_data(room_name)
 
 class Dungeon(IceGauntlet.Dungeon):
     '''Dungeon Servant'''
@@ -66,11 +68,21 @@ class DungeonArea(IceGauntlet.DungeonArea):
 
 class MapStorage:
     @staticmethod
-    def __commit__(user_name, room_data):
-        '''Saves the map in the rooms.json file'''
+    def open_db():
+        '''Reads the JSON file Rooms.json'''
         with open(ROOMS_FILE, 'r') as roomsfile:
             rooms = json.load(roomsfile)
+        return rooms
+    
+    @staticmethod
+    def write_db(rooms):
+        '''Overwrites the JSON file Rooms.json'''
+        with open(ROOMS_FILE, 'w') as roomsfile:
+            json.dump(rooms, roomsfile, indent=4)
 
+    def __commit__(self, user_name, room_data):
+        '''Saves the map in the rooms.json file'''
+        rooms = self.open_db()
         new_room = json.loads(room_data)
 
         try:
@@ -88,31 +100,28 @@ class MapStorage:
         rooms[new_room["room"]][user_name] = {}
         rooms[new_room["room"]][user_name] = new_room
 
-        with open(ROOMS_FILE, 'w') as roomsfile:
-            json.dump(rooms, roomsfile, indent=4)
+        self.write_db(rooms)
 
-    @staticmethod
-    def __uncommit__(user_name, room_name):
+    def __uncommit__(self, user_name, room_name):
         '''Removes the map from the rooms.json file'''
-        with open(ROOMS_FILE, 'r') as roomsfile:
-            rooms = json.load(roomsfile)
+        rooms = self.open_db()
 
-        if not room_name in rooms:
+        if room_name not in rooms:
             raise IceGauntlet.RoomNotExists()
-
         if user_name != list(rooms[room_name].keys())[0]:
             raise IceGauntlet.RoomNotExists()
-
         rooms.pop(room_name)
 
-        with open(ROOMS_FILE, 'w') as roomsfile:
-            json.dump(rooms, roomsfile, indent=4)
+        self.write_db(rooms)
 
-    @staticmethod
-    def getRoomNamesAndUserNames():
+    def get_rooms(self):
+        '''Returns a list with all the room names'''
+        rooms = self.open_db()
+        return list(rooms.keys())
+
+    def get_rooms_with_users(self):
         '''Returns a list with the format:[{Room:User}, ...]'''
-        with open(ROOMS_FILE, 'r') as roomsfile:
-            rooms = json.load(roomsfile)
+        rooms = self.open_db()
 
         rooms_and_users_list = list()
 
@@ -124,11 +133,9 @@ class MapStorage:
 
         return rooms_and_users_list
 
-    @staticmethod
-    def getSpecificRoom(roomName):
+    def get_room_data(self, roomName):
         '''Returns the information of an specific room given the name'''
-        with open(ROOMS_FILE, 'r') as roomsfile:
-            rooms = json.load(roomsfile)
+        rooms = self.open_db()
 
         user_name = list(rooms[roomName].keys())[0]
         return json.dumps(rooms[roomName][user_name])
