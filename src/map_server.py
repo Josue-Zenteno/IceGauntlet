@@ -13,13 +13,14 @@ import argparse
 from random import choice
 
 import Ice
+import IceStorm
 Ice.loadSlice('icegauntlet.ice')
 # pylint: disable=E0401
 # pylint: disable=C0413
 import IceGauntlet
 
 ROOMS_FILE = 'rooms.json'
-
+ROOM_MANAGER_PROXY = ''
 class RoomManager(IceGauntlet.RoomManager):
     '''Room Manager Servant'''
     def __init__(self, broker, args):
@@ -58,13 +59,57 @@ class RoomManager(IceGauntlet.RoomManager):
             raise IceGauntlet.RoomNotExists()
         return self.map_storage.get_room_data(room_name)
 
+class RoomManagerSync(IceGauntlet.RoomManagerSync):
+    '''Event channel for Room Manager synchronization'''
+    def hello(self, manager, managerId, current=None):
+        '''Sends a hello message'''
+        pass
+
+    def announce(self, manager, managerId, current=None):
+        '''Sends an announce message'''
+        pass
+        
+    def newRoom(self, roomName, managerId, current=None):
+        '''Sends a new room message'''
+        pass
+
+    def removedRoom(self, roomName, current=None):
+        '''Sends a removed room message'''
+        pass
+
 class Dungeon(IceGauntlet.Dungeon):
     '''Dungeon Servant'''
-    pass
+    def getEntrance(self, current=None):
+        '''Returns a DungeonArea'''
+        pass
 
 class DungeonArea(IceGauntlet.DungeonArea):
     '''DungeonArea Servant'''
-    pass
+    def getEventChannel(self, current=None):
+        '''Returns the event channel'''
+        pass
+
+    def getMap(self, current=None):
+        '''Returns the map'''
+        pass
+
+    def getActors(self, current=None):
+        '''Returns the cast ?'''
+        pass
+
+    def getItems(self, current=None):
+        '''Returns the items ?'''
+        pass
+
+    def getNextArea(self, current=None):
+        '''Returns the next DungeonArea'''
+        pass
+
+class DungeonAreaSync():
+    '''Event channel for DungeonArea synchronization'''    
+    def fireEvent(self, event, senderId, current=None):
+        '''Sends Fire Event'''
+        pass
 
 class MapStorage:
     @staticmethod
@@ -145,22 +190,64 @@ class MapManServer(Ice.Application):
     def run(self, argv):
         args = self.parse_args(argv)
         broker = self.communicator()
-
-        room_manager_servant = RoomManager(broker, args)
-        dungeon_servant = Dungeon() #TODO
-        #dungeon_area_servant = DungeonArea() #TODO
-
+        topic_mgr = self.get_topic_manager(broker)
         adapter = broker.createObjectAdapter("RoomManagerAdapter")
-        map_man_proxy = adapter.addWithUUID(room_manager_servant)
-        game_proxy = adapter.addWithUUID(dungeon_servant)
+        
+        topic = self.prepare_topic(topic_mgr)
+        subscriber = self.prepare_subscriber(adapter,topic)
+        publisher = self.prepare_publisher(topic)
+        
+        room_manager_servant = RoomManager(broker, args)
+        ROOM_MANAGER_PROXY = adapter.addWithUUID(room_manager_servant)
+        
+        publisher.hello(IceGauntlet.RoomManagerPrx.uncheckedCast(ROOM_MANAGER_PROXY),'"{}"'.format(ROOM_MANAGER_PROXY))
 
-        print('"{}"'.format(map_man_proxy))
-        self.save_game_proxy('"{}"'.format(game_proxy))
+        dungeon_servant = Dungeon()
+        dungeon_proxy = adapter.addWithUUID(dungeon_servant)
+
+        print('"{}"'.format(ROOM_MANAGER_PROXY))
+        self.save_game_proxy('"{}"'.format(dungeon_proxy))
 
         adapter.activate()
         self.shutdownOnInterrupt()
         broker.waitForShutdown()
+        topic.unsubscribe(subscriber)
         return 0
+    
+    @staticmethod
+    def prepare_topic(topic_mgr):
+        topic_name = "RoomManagerSyncChannel"
+        try:
+            topic = topic_mgr.retrieve(topic_name)
+        # pylint: disable=E1101
+        except IceStorm.NoSuchTopic:
+            topic = topic_mgr.create(topic_name)
+        return topic
+
+    @staticmethod
+    def prepare_subscriber(adapter, topic):
+        room_manager_sync_servant = RoomManagerSync()
+        subscriber = adapter.addWithUUID(room_manager_sync_servant)
+        topic.subscribeAndGetPublisher({}, subscriber)
+        return subscriber
+
+    @staticmethod
+    def prepare_publisher(topic):
+        publisher_prx = topic.getPublisher()
+        publisher = IceGauntlet.RoomManagerSyncPrx.uncheckedCast(publisher_prx)
+        return publisher
+
+    @staticmethod
+    def get_topic_manager(broker):
+        key = 'IceStorm.TopicManager.Proxy'
+        proxy = broker.propertyToProxy(key)
+        if proxy is None:
+            print("property '{}' not set".format(key))
+            return None
+
+        print("Using IceStorm in: '%s'" % key)
+        # pylint: disable=E1101
+        return IceStorm.TopicManagerPrx.checkedCast(proxy)
 
     @staticmethod
     def parse_args(argv):
