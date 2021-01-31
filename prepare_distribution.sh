@@ -1,4 +1,4 @@
 #!/bin/bash
-mkdir -p /tmp/IceGauntlet/
-cp -r server2.py icegauntlet_auth_server/auth_server icegauntlettool.py icegauntlet.ice rooms/ icegauntlet_auth_server/users.json IceStorm/ /tmp/IceGauntlet/
-icepatch2calc /tmp/IceGauntlet/
+mkdir -p /tmp/icegauntlet/
+cp -r icegauntlet.ice src/map_server.py src/auth_server.py rooms.json users.json managers.json IceStorm/ /tmp/icegauntlet/
+icepatch2calc /tmp/icegauntlet/
