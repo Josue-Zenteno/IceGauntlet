@@ -57,7 +57,7 @@
       </server-template>
       <server-template id="IceGauntletAuthTemplate">
          <parameter name="index"/>
-         <server id="AuthServer${index}" activation="manual" exe="./src/auth_server.py" pwd="${application.distrib}">
+         <server id="AuthServer${index}" activation="manual" exe="./auth_server.py" pwd="${application.distrib}">
             <properties>
                <property name="Ice.StdOut" value="${application.distrib}/server${index}out.txt"/>
                <property name="Ice.StdErr" value="${application.distrib}/server${index}err.txt"/>
@@ -106,17 +106,18 @@
       </server-template>
       <server-template id="RoomManagerTemplate">
          <parameter name="index"/>
-         <server id="Room_Manager${index}" activation="on-demand" exe="./src/map_server.py" pwd="${application.distrib}">
+         <server id="Room_Manager${index}" activation="on-demand" exe="./map_server.py" pwd="${application.distrib}">
             <properties>
                <property name="Ice.StdOut" value="${application.distrib}/server-out${index}.txt"/>
                <property name="IceStorm.TopicManager.Proxy" value="IceStorm/TopicManager:tcp -p 10000"/>
                <property name="Ice.ProgramName" value="${server}.RoomManager${index}"/>
+               <property name="Identity" value="room_manager"/>
             </properties>
+            <adapter name="EventAdapter" endpoints="tcp" id="${server}.EventAdapter">
+               <object identity="event_adapter${index}" type="::IceGauntlet::RoomManagerSync"/>
+            </adapter>
             <adapter name="RoomManagerAdapter" endpoints="tcp" id="${server}.RoomManagerAdapter" replica-group="RoomManagerReplicaGroup">
                <object identity="room_manager${index}" type="::IceGauntlet::RoomManager" property="Identity"/>
-            </adapter>
-            <adapter name="Room_Manager2_Adapter" endpoints="tcp" id="${server}.Room_Manager2_Adapter">
-               <object identity="room_manager2_adapter${index}" type="::IceGauntlet::RoomManagerSync"/>
             </adapter>
          </server>
       </server-template>
@@ -141,7 +142,7 @@
                <adapter name="TopicManager" endpoints="tcp -p 10000" id="${server}.${service}.TopicManager"/>
             </service>
          </icebox>
-         <server-instance template="IcePatch2" directory="/tmp/IceGauntlet"/>
+         <server-instance template="IcePatch2" directory="/tmp/icegauntlet"/>
          <server-instance template="RoomManagerTemplate" index="1"/>
       </node>
       <node name="node2">
