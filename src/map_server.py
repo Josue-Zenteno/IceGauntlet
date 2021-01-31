@@ -88,10 +88,9 @@ class RoomManagerSync(IceGauntlet.RoomManagerSync):
 
     def newRoom(self, room_name, manager_id, current=None):
         '''Sends a new room message'''
-        if room_name not in self.managers_storage.get_rooms():
-            remote_manager = self.get_remote_manager(manager_id)
-            new_rooms = self.get_new_rooms(remote_manager)
-            self.save_new_rooms(new_rooms, remote_manager)
+        remote_manager = self.get_remote_manager(manager_id)
+        new_rooms = self.get_new_rooms(remote_manager)
+        self.save_new_rooms(new_rooms, remote_manager)
 
     def removedRoom(self, room_name, current=None):
         '''Sends a removed room message'''
@@ -114,8 +113,8 @@ class RoomManagerSync(IceGauntlet.RoomManagerSync):
         remote_available_rooms = remote_manager.availableRooms()
         local_available_rooms = self.managers_storage.get_rooms_with_users()
 
+        new_rooms = list()
         if remote_available_rooms != local_available_rooms:
-            new_rooms = list()
             for room in remote_available_rooms:
                 if room not in local_available_rooms:
                     new_rooms.append(room)
