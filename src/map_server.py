@@ -32,7 +32,7 @@ class RoomManager(IceGauntlet.RoomManager):
         self.publisher = publisher
         try:
             self.communicator = broker
-            self.auth_proxy = self.communicator.stringToProxy('default_1')
+            self.auth_proxy = self.communicator.stringToProxy("default_1")
             self.auth_server = IceGauntlet.AuthenticationPrx.checkedCast(self.auth_proxy)
             if not self.auth_server:
                 raise RuntimeError('Invalid proxy')
@@ -276,22 +276,25 @@ class MapStorage:
 class MapManServer(Ice.Application):
     '''Map Server'''
     def run(self, argv):
-        args = self.parse_args(argv)
+        #args = self.parse_args(argv)
+        args = ''
         broker = self.communicator()
         topic_mgr = self.get_topic_manager(broker)
-        adapter = broker.createObjectAdapter("RoomManagerAdapter")
+        room_adapter = broker.createObjectAdapter("RoomManagerAdapter")
+        event_adapter = broker.createObjectAdapter("EventAdapter")
+        room_adapter.activate()
+        event_adapter.activate()
 
         topic = self.prepare_topic(topic_mgr)
         publisher = self.prepare_publisher(topic)
-        subscriber = self.prepare_subscriber(adapter, topic, broker, publisher)
+        subscriber = self.prepare_subscriber(event_adapter, topic, broker, publisher)
 
-        self.prepare_proxies(adapter, broker, publisher, args)
+        self.prepare_proxies(room_adapter, broker, publisher, args)
 
         self.say_hello(publisher)
 
         self.show_proxies()
 
-        adapter.activate()
         self.shutdownOnInterrupt()
         broker.waitForShutdown()
         topic.unsubscribe(subscriber)
@@ -341,7 +344,8 @@ class MapManServer(Ice.Application):
         global DUNGEON_PROXY
 
         room_manager_servant = RoomManager(broker, publisher, args)
-        ROOM_MANAGER_PROXY = adapter.addWithUUID(room_manager_servant)
+        identifier = broker.getProperties().getProperty('Identity')
+        ROOM_MANAGER_PROXY = adapter.add(room_manager_servant, broker.stringToIdentity(identifier))
 
         dungeon_servant = Dungeon()
         DUNGEON_PROXY = adapter.addWithUUID(dungeon_servant)
