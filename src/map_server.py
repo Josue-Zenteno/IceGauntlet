@@ -73,30 +73,30 @@ class RoomManagerSync(IceGauntlet.RoomManagerSync):
         self.publisher = publisher
         self.communicator = broker
 
-    def hello(self, manager, managerId, current=None):
+    def hello(self, manager, manager_id, current=None):
         '''Sends a hello message'''
-        if managerId != '{}'.format(ROOM_MANAGER_PROXY):
-            if managerId not in self.managers_storage.get_managers():
-                self.managers_storage.commit_manager(managerId) 
+        if manager_id != '{}'.format(ROOM_MANAGER_PROXY):
+            if manager_id not in self.managers_storage.get_managers():
+                self.managers_storage.commit_manager(manager_id)
         self.make_announce()
-        
-    def announce(self, manager, managerId, current=None):
-        '''Sends an announce message'''
-        if managerId != '{}'.format(ROOM_MANAGER_PROXY):
-            if managerId not in self.managers_storage.get_managers():
-                self.managers_storage.commit_manager(managerId)
 
-    def newRoom(self, roomName, managerId, current=None):
+    def announce(self, manager, manager_id, current=None):
+        '''Sends an announce message'''
+        if manager_id != '{}'.format(ROOM_MANAGER_PROXY):
+            if manager_id not in self.managers_storage.get_managers():
+                self.managers_storage.commit_manager(manager_id)
+
+    def newRoom(self, room_name, manager_id, current=None):
         '''Sends a new room message'''
-        if roomName not in self.managers_storage.get_rooms():
-            remote_manager = self.get_remote_manager(managerId)
+        if room_name not in self.managers_storage.get_rooms():
+            remote_manager = self.get_remote_manager(manager_id)
             new_rooms = self.get_new_rooms(remote_manager)
             self.save_new_rooms(new_rooms, remote_manager)
 
-    def removedRoom(self, roomName, current=None):
+    def removedRoom(self, room_name, current=None):
         '''Sends a removed room message'''
-        if roomName in self.managers_storage.get_rooms():
-            self.managers_storage.uncommit_room_event(roomName)
+        if room_name in self.managers_storage.get_rooms():
+            self.managers_storage.uncommit_room_event(room_name)
 
     def make_announce(self):
         '''Executes the announce method'''
@@ -104,9 +104,9 @@ class RoomManagerSync(IceGauntlet.RoomManagerSync):
         local_manager_id = '{}'.format(ROOM_MANAGER_PROXY)
         self.publisher.announce(local_manager, local_manager_id)
 
-    def get_remote_manager(self, managerId):
+    def get_remote_manager(self, manager_id):
         '''Returns the remote RoomManager object'''
-        remote_manager_proxy = self.communicator.stringToProxy(managerId)
+        remote_manager_proxy = self.communicator.stringToProxy(manager_id)
         return IceGauntlet.RoomManagerPrx.checkedCast(remote_manager_proxy)
 
     def get_new_rooms(self, remote_manager):
@@ -134,44 +134,38 @@ class Dungeon(IceGauntlet.Dungeon):
     '''Dungeon Servant'''
     def getEntrance(self, current=None):
         '''Returns a DungeonArea'''
-        pass
 
 class DungeonArea(IceGauntlet.DungeonArea):
     '''DungeonArea Servant'''
     def getEventChannel(self, current=None):
         '''Returns the event channel'''
-        pass
 
     def getMap(self, current=None):
         '''Returns the map'''
-        pass
 
     def getActors(self, current=None):
         '''Returns the cast ?'''
-        pass
 
     def getItems(self, current=None):
         '''Returns the items ?'''
-        pass
 
     def getNextArea(self, current=None):
         '''Returns the next DungeonArea'''
-        pass
 
 class DungeonAreaSync():
-    '''Event channel for DungeonArea synchronization'''    
-    def fireEvent(self, event, senderId, current=None):
+    '''Event channel for DungeonArea synchronization'''
+    def fireEvent(self, event, sender_id, current=None):
         '''Sends Fire Event'''
-        pass
 
 class MapStorage:
+    '''Class that manages everything related to the JSON files'''
     @staticmethod
     def open_rooms_db():
         '''Reads the JSON file Rooms.json'''
         with open(ROOMS_FILE, 'r') as roomsfile:
             rooms = json.load(roomsfile)
         return rooms
-    
+
     @staticmethod
     def write_rooms_db(rooms):
         '''Overwrites the JSON file Rooms.json'''
@@ -184,7 +178,7 @@ class MapStorage:
         with open(MANAGERS_FILE, 'r') as managersfile:
             managers = json.load(managersfile)
         return managers
-    
+
     @staticmethod
     def write_managers_db(managers):
         '''Overwrites the JSON file Rooms.json'''
@@ -235,7 +229,7 @@ class MapStorage:
         rooms[new_room["room"]] = {}
         rooms[new_room["room"]][user_name] = {}
         rooms[new_room["room"]][user_name] = new_room
-        
+
         self.write_rooms_db(rooms)
 
     def uncommit_room_event(self, room_name):
@@ -263,11 +257,11 @@ class MapStorage:
 
         return rooms_and_users_list
 
-    def get_room_data(self, roomName):
+    def get_room_data(self, room_name):
         '''Returns the information of an specific room given the name'''
         rooms = self.open_rooms_db()
-        user_name = list(rooms[roomName].keys())[0]
-        return json.dumps(rooms[roomName][user_name])
+        user_name = list(rooms[room_name].keys())[0]
+        return json.dumps(rooms[room_name][user_name])
 
     def commit_manager(self, manager_id):
         '''Saves the identifier of a RoomManager'''
@@ -278,7 +272,7 @@ class MapStorage:
     def get_managers(self):
         '''Returns a list with all the RoomManager IDs'''
         managers = self.open_managers_db()
-        return list(managers.keys()) 
+        return list(managers.keys())
 
 class MapManServer(Ice.Application):
     '''Map Server'''
@@ -347,7 +341,7 @@ class MapManServer(Ice.Application):
         global ROOM_MANAGER_PROXY
         global DUNGEON_PROXY
 
-        room_manager_servant = RoomManager(broker, publisher, args) 
+        room_manager_servant = RoomManager(broker, publisher, args)
         ROOM_MANAGER_PROXY = adapter.addWithUUID(room_manager_servant)
 
         dungeon_servant = Dungeon()
@@ -361,6 +355,7 @@ class MapManServer(Ice.Application):
         publisher.hello(manager, manager_id)
 
     def show_proxies(self):
+        '''Prints the Room Manager proxy and saves the Dungeon Proxy'''
         print('"{}"'.format(ROOM_MANAGER_PROXY))
         self.save_game_proxy('"{}"'.format(DUNGEON_PROXY))
 
