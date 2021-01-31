@@ -32,7 +32,7 @@ class RoomManager(IceGauntlet.RoomManager):
         self.publisher = publisher
         try:
             self.communicator = broker
-            self.auth_proxy = self.communicator.stringToProxy(args.authProxy)
+            self.auth_proxy = self.communicator.stringToProxy('default_1')
             self.auth_server = IceGauntlet.AuthenticationPrx.checkedCast(self.auth_proxy)
             if not self.auth_server:
                 raise RuntimeError('Invalid proxy')
