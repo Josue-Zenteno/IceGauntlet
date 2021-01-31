@@ -10,7 +10,6 @@
 import sys
 import json
 import argparse
-from random import choice
 
 import Ice
 import IceStorm
@@ -21,7 +20,10 @@ import IceGauntlet
 
 ROOMS_FILE = 'rooms.json'
 MANAGERS_FILE = 'managers.json'
-ROOM_MANAGER_PROXY = ''
+
+ROOM_MANAGER_PROXY = 'room_manager_proxy'
+DUNGEON_PROXY = 'dungeon_proxy'
+
 class RoomManager(IceGauntlet.RoomManager):
     '''Room Manager Servant'''
     def __init__(self, broker, publisher, args):
@@ -65,8 +67,8 @@ class RoomManager(IceGauntlet.RoomManager):
 
 class RoomManagerSync(IceGauntlet.RoomManagerSync):
     '''Event channel for Room Manager synchronization'''
-
     def __init__(self, publisher, broker):
+        '''Sets the local object references'''
         self.managers_storage = MapStorage()
         self.publisher = publisher
         self.communicator = broker
@@ -75,42 +77,58 @@ class RoomManagerSync(IceGauntlet.RoomManagerSync):
         '''Sends a hello message'''
         if managerId != '{}'.format(ROOM_MANAGER_PROXY):
             if managerId not in self.managers_storage.get_managers():
-                self.managers_storage.commit_manager(managerId)
-        self.publisher.announce(IceGauntlet.RoomManagerPrx.uncheckedCast(ROOM_MANAGER_PROXY),'{}'.format(ROOM_MANAGER_PROXY))
-
+                self.managers_storage.commit_manager(managerId) 
+        self.make_announce()
+        
     def announce(self, manager, managerId, current=None):
         '''Sends an announce message'''
         if managerId != '{}'.format(ROOM_MANAGER_PROXY):
             if managerId not in self.managers_storage.get_managers():
                 self.managers_storage.commit_manager(managerId)
-        
+
     def newRoom(self, roomName, managerId, current=None):
         '''Sends a new room message'''
         if roomName not in self.managers_storage.get_rooms():
-            print(managerId)
-            manager_proxy = self.communicator.stringToProxy(managerId)
-            manager = IceGauntlet.RoomManagerPrx.checkedCast(manager_proxy)
-            
-            remote_available_rooms = manager.availableRooms()
-            local_available_rooms = self.managers_storage.get_rooms_with_users()
-            
-            if remote_available_rooms != local_available_rooms:
-                new_rooms = list()
-                for room in remote_available_rooms:
-                    if room not in local_available_rooms:
-                        new_rooms.append(room)
-
-            for room in new_rooms:
-                aux_dict = json.loads(room)
-                room_name = list(aux_dict.keys())[0]
-                user_name = aux_dict[room_name]
-                room_data = manager.getRoom(roomName)
-                self.managers_storage.commit_room_event(user_name, room_data)
+            remote_manager = self.get_remote_manager(managerId)
+            new_rooms = self.get_new_rooms(remote_manager)
+            self.save_new_rooms(new_rooms, remote_manager)
 
     def removedRoom(self, roomName, current=None):
         '''Sends a removed room message'''
         if roomName in self.managers_storage.get_rooms():
             self.managers_storage.uncommit_room_event(roomName)
+
+    def make_announce(self):
+        '''Executes the announce method'''
+        local_manager = IceGauntlet.RoomManagerPrx.uncheckedCast(ROOM_MANAGER_PROXY)
+        local_manager_id = '{}'.format(ROOM_MANAGER_PROXY)
+        self.publisher.announce(local_manager, local_manager_id)
+
+    def get_remote_manager(self, managerId):
+        '''Returns the remote RoomManager object'''
+        remote_manager_proxy = self.communicator.stringToProxy(managerId)
+        return IceGauntlet.RoomManagerPrx.checkedCast(remote_manager_proxy)
+
+    def get_new_rooms(self, remote_manager):
+        '''Returns a list with all the new rooms'''
+        remote_available_rooms = remote_manager.availableRooms()
+        local_available_rooms = self.managers_storage.get_rooms_with_users()
+
+        if remote_available_rooms != local_available_rooms:
+            new_rooms = list()
+            for room in remote_available_rooms:
+                if room not in local_available_rooms:
+                    new_rooms.append(room)
+        return new_rooms
+
+    def save_new_rooms(self, new_rooms, remote_manager):
+        '''Gets the data all the new rooms and saves it in the db'''
+        for room in new_rooms:
+            aux_dict = json.loads(room)
+            new_room_name = list(aux_dict.keys())[0]
+            new_user_name = aux_dict[new_room_name]
+            new_room_data = remote_manager.getRoom(new_room_name)
+            self.managers_storage.commit_room_event(new_user_name, new_room_data)
 
 class Dungeon(IceGauntlet.Dungeon):
     '''Dungeon Servant'''
@@ -214,11 +232,10 @@ class MapStorage:
         rooms = self.open_rooms_db()
         new_room = json.loads(room_data)
 
-        if new_room["room"] not in list(rooms.keys()):
-            rooms[new_room["room"]] = {}
-            rooms[new_room["room"]][user_name] = {}
-            rooms[new_room["room"]][user_name] = new_room
-
+        rooms[new_room["room"]] = {}
+        rooms[new_room["room"]][user_name] = {}
+        rooms[new_room["room"]][user_name] = new_room
+        
         self.write_rooms_db(rooms)
 
     def uncommit_room_event(self, room_name):
@@ -249,7 +266,6 @@ class MapStorage:
     def get_room_data(self, roomName):
         '''Returns the information of an specific room given the name'''
         rooms = self.open_rooms_db()
-
         user_name = list(rooms[roomName].keys())[0]
         return json.dumps(rooms[roomName][user_name])
 
@@ -271,31 +287,37 @@ class MapManServer(Ice.Application):
         broker = self.communicator()
         topic_mgr = self.get_topic_manager(broker)
         adapter = broker.createObjectAdapter("RoomManagerAdapter")
-        
+
         topic = self.prepare_topic(topic_mgr)
         publisher = self.prepare_publisher(topic)
         subscriber = self.prepare_subscriber(adapter, topic, broker, publisher)
-        
-        global ROOM_MANAGER_PROXY
-        room_manager_servant = RoomManager(broker, publisher, args) 
-        ROOM_MANAGER_PROXY = adapter.addWithUUID(room_manager_servant)
-        
-        publisher.hello(IceGauntlet.RoomManagerPrx.uncheckedCast(ROOM_MANAGER_PROXY),'{}'.format(ROOM_MANAGER_PROXY))
 
-        dungeon_servant = Dungeon()
-        dungeon_proxy = adapter.addWithUUID(dungeon_servant)
+        self.prepare_proxies(adapter, broker, publisher, args)
 
-        print('"{}"'.format(ROOM_MANAGER_PROXY))
-        self.save_game_proxy('"{}"'.format(dungeon_proxy))
+        self.say_hello(publisher)
+
+        self.show_proxies()
 
         adapter.activate()
         self.shutdownOnInterrupt()
         broker.waitForShutdown()
         topic.unsubscribe(subscriber)
         return 0
-    
+
+    @staticmethod
+    def get_topic_manager(broker):
+        '''Returns a TopicManager object'''
+        key = 'IceStorm.TopicManager.Proxy'
+        proxy = broker.propertyToProxy(key)
+        if proxy is None:
+            print("property '{}' not set".format(key))
+            return None
+        # pylint: disable=E1101
+        return IceStorm.TopicManagerPrx.checkedCast(proxy)
+
     @staticmethod
     def prepare_topic(topic_mgr):
+        '''Returns a Topic object'''
         topic_name = "RoomManagerSyncChannel"
         try:
             topic = topic_mgr.retrieve(topic_name)
@@ -305,27 +327,42 @@ class MapManServer(Ice.Application):
         return topic
 
     @staticmethod
+    def prepare_publisher(topic):
+        '''Returns a Publisher object'''
+        publisher_prx = topic.getPublisher()
+        publisher = IceGauntlet.RoomManagerSyncPrx.uncheckedCast(publisher_prx)
+        return publisher
+
+    @staticmethod
     def prepare_subscriber(adapter, topic, broker, publisher):
+        '''Returns a Subscriber Object'''
         room_manager_sync_servant = RoomManagerSync(publisher, broker)
         subscriber = adapter.addWithUUID(room_manager_sync_servant)
         topic.subscribeAndGetPublisher({}, subscriber)
         return subscriber
 
     @staticmethod
-    def prepare_publisher(topic):
-        publisher_prx = topic.getPublisher()
-        publisher = IceGauntlet.RoomManagerSyncPrx.uncheckedCast(publisher_prx)
-        return publisher
+    def prepare_proxies(adapter, broker, publisher, args):
+        '''Gets the Remote Object references'''
+        global ROOM_MANAGER_PROXY
+        global DUNGEON_PROXY
+
+        room_manager_servant = RoomManager(broker, publisher, args) 
+        ROOM_MANAGER_PROXY = adapter.addWithUUID(room_manager_servant)
+
+        dungeon_servant = Dungeon()
+        DUNGEON_PROXY = adapter.addWithUUID(dungeon_servant)
 
     @staticmethod
-    def get_topic_manager(broker):
-        key = 'IceStorm.TopicManager.Proxy'
-        proxy = broker.propertyToProxy(key)
-        if proxy is None:
-            print("property '{}' not set".format(key))
-            return None
-        # pylint: disable=E1101
-        return IceStorm.TopicManagerPrx.checkedCast(proxy)
+    def say_hello(publisher):
+        '''Throws the Hello Event'''
+        manager = IceGauntlet.RoomManagerPrx.uncheckedCast(ROOM_MANAGER_PROXY)
+        manager_id = '{}'.format(ROOM_MANAGER_PROXY)
+        publisher.hello(manager, manager_id)
+
+    def show_proxies(self):
+        print('"{}"'.format(ROOM_MANAGER_PROXY))
+        self.save_game_proxy('"{}"'.format(DUNGEON_PROXY))
 
     @staticmethod
     def parse_args(argv):
